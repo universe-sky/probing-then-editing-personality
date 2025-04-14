@@ -49,23 +49,19 @@ class ClassifierManager:
         with open(f"{self.type}.txt", "w") as f:
             for i in range(len(self.classifiers)):
                 # 计算正确率
-                accuracy_diff = self.classifiers[i].evaluate_testacc_with_shuffled_labels(
+                accuracy_diff = self.classifiers[i].evaluate_testnll_with_zero_input(
                     pos_tensor=pos_embds.layers[i],
                     neg_tensor=neg_embds.layers[i],
                     ext_tensor=ext_embds.layers[i],  # 新增 extraversion 类别
                 )
-                f.write(f"Layer {i}: Accuracy shuffled: {accuracy_diff:.4f}\n")
-
-            f.write("="*50+"\n")
-
-            for i in range(len(self.classifiers)):
                 # 计算正确率
-                accuracy_origin = self.classifiers[i].evaluate_testacc(
+                accuracy_origin = self.classifiers[i].evaluate_testnll(
                     pos_tensor=pos_embds.layers[i],
                     neg_tensor=neg_embds.layers[i],
                     ext_tensor=ext_embds.layers[i],  # 新增 extraversion 类别
                 )
-                f.write(f"Layer {i}: Accuracy Origin: {accuracy_origin:.4f}\n")
+                diff = accuracy_diff - accuracy_origin
+                f.write(f"Layer {i}: Accuracy Origin: {diff:.4f}\n")
     
     def fit(
         self, 

@@ -35,7 +35,7 @@ class ModelExtraction(ModelBase):
             instruction = f"{question} {txt}"
 
             # 将最终的指令传给模型
-            final_message = self.apply_sft_template(instruction=instruction, system_message=system_message)
+            final_message = self.apply_sft_template(instruction=question, system_message=system_message)
 
             input_ids = self.tokenizer.apply_chat_template(final_message, add_generation_prompt=True, return_tensors="pt").to(self.device)
 
