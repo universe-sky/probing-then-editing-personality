@@ -92,7 +92,7 @@ class LayerClassifier:
 
         # 返回两者的差值
         return shuffled_accuracy
-
+    
     def evaluate_testnll(self, pos_tensor: torch.Tensor, neg_tensor: torch.Tensor, ext_tensor: torch.Tensor) -> float:
         """
         计算模型在原始测试数据上的平均负对数概率 (NLL)。

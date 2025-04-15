@@ -9,10 +9,9 @@ class ModelBase:
         self.device = self.select_device()
 
         # 加载模型和tokenizer
-        model_path = "/data/home/jutj/Llama-3.1-8B-Instruct"
-        self.tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
+        self.tokenizer = AutoTokenizer.from_pretrained(self.llm_cfg.model_name, trust_remote_code=True)
         self.model = AutoModelForCausalLM.from_pretrained(
-            model_path, trust_remote_code=True, torch_dtype=torch.float16
+            self.llm_cfg.model_name, trust_remote_code=True, torch_dtype=torch.float16
         ).to(self.device)
 
     def apply_sft_template(self, instruction, system_message=None):

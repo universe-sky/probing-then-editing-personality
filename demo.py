@@ -3,15 +3,8 @@
 from instructions import *
 
 dataset_name = 'Demo'
-model_nickname = 'llama3-8b'
-classifier_type = 'Llama-3.1-8B-Instruct'  # 选择分类任务时指定要训练的分类器类型
-
-# 设置测试数据集路径
-test_dataset_path = "/data/home/jutj/jailbreaking/datasets/test.json"  # 测试集路径
-
-# 读取数据集
-with open(test_dataset_path, 'r', encoding='utf-8') as file:
-    test_data = json.load(file)
+model_nickname = 'llama3-8b-instruct'
+classifier_type = 'llama3-8b-instruct'  # 选择分类任务时指定要训练的分类器类型
 
 # 加载数据并划分训练集和测试集（70% 训练集，30% 测试集）
 insts, entities = load_instructions_by_size(
@@ -21,6 +14,11 @@ insts, entities = load_instructions_by_size(
 )
 
 from model_extraction import ModelExtraction
+
+# pos_train_embds = llm.extract_embds(insts['train'][0])   # 提取正类样本的嵌入
+# neg_train_embds = llm.extract_embds(insts['train'][1])   # 提取负类样本的嵌入
+# pos_test_embds = llm.extract_embds(insts['test'][0])     # 提取正类样本的嵌入
+# neg_test_embds = llm.extract_embds(insts['test'][1])     # 提取负类样本的嵌入
 
 from classifier_manager import *
 
@@ -51,7 +49,6 @@ else:
     ext_test_embds = llm.extract_embds(insts['test'][2], personality='extraversion', entities=entities)  # extraversion
 
     plot_embeddings(pos_test_embds, neg_test_embds, ext_test_embds, output_dir='./')
-
     clfr.fit(pos_train_embds, neg_train_embds, ext_train_embds, pos_test_embds, neg_test_embds, ext_test_embds)
     print("Saving trained classifier model...")
     clfr.save(".")  # 保存模型到当前目录
@@ -64,26 +61,13 @@ llm_gen = ModelGeneration(model_nickname)
 question = "What is your opinion of Murano? Please answer using agreeableness personality"
 
 llm_gen.set_perturbation(None)
-output = llm_gen.generate(personality='agreeableness', ent='Murano')
-origin = []
-origin.append(output["original_outputs"])
+output = llm_gen.generate(question)
 
 from perturbation import Perturbation
 
-pert = Perturbation(clfr, target_class=2, target_probability=0.99)
+pert = Perturbation(clfr, target_class=0, target_probability=0.99)
 llm_gen.set_perturbation(pert)
-output_perturbed = llm_gen.generate(personality='agreeableness', ent='Murano')
-perturbed = []
-perturbed.append(output_perturbed["perturbed_outputs"])
-
-llm = ModelExtraction(model_nickname)
-
-pos_test_embds = llm.extract_embds(insts['test'][0], personality='agreeableness', entities=entities)  # agreeableness
-neg_test_embds = llm.extract_embds(insts['test'][1], personality='neuroticism', entities=entities)  # neuroticism
-ext_test_embds = llm.extract_embds(insts['test'][2], personality='extraversion', entities=entities)  # extraversion
-
-
-plot_embeddings(pos_test_embds, neg_test_embds, ext_test_embds, origin, perturbed, output_dir='./')
+output_perturbed = llm_gen.generate(question)
 
 def print_and_write_to_file(text, file):
     print(text)  # 打印到控制台
@@ -93,34 +77,8 @@ def print_and_write_to_file(text, file):
 with open("result.txt", "a") as f:
     # 输出并同时写入到文件
     print_and_write_to_file(f"question: {question}", f)
-    print_and_write_to_file("target:extraversion", f)
+    print_and_write_to_file("target:neuroticism", f)
     print_and_write_to_file(output['completion'], f)
     print_and_write_to_file("=" * 50, f)
     print_and_write_to_file(output_perturbed['completion'], f)
     print_and_write_to_file("="*50, f)
-
-# # 遍历测试集中的每个样本，生成问题并扰动生成的回复
-# for item in test_data:
-#     ent = item.get("ent")
-#     # neuroticism = item.get("neuroticism", [])
-#     # extraversion = item.get("extraversion", [])
-#     # agreeableness = item.get("agreeableness", [])
-
-#     if ent:
-#         # 生成基于 "extraversion" 个性的提问
-#         question = f"What is your opinion of {ent}? Please answer using agreeableness personality"
-#         llm_gen.set_perturbation(None)
-#         output = llm_gen.generate(question)
-        
-#         # 生成扰动后的回答
-#         pert = Perturbation(clfr, target_class=0, target_probability=0.99)  # 修改为适应目标类别
-#         llm_gen.set_perturbation(pert)
-#         output_perturbed = llm_gen.generate(question)
-
-#         # 输出并写入到文件
-#         with open("result.txt", "a") as f:
-#             print_and_write_to_file(f"question: {question}", f)
-#             print_and_write_to_file(output['completion'], f)
-#             print_and_write_to_file("=" * 50, f)
-#             print_and_write_to_file(output_perturbed['completion'], f)
-#             print_and_write_to_file("=" * 50, f)
