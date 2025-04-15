@@ -1,0 +1,6 @@
+models
+result
+results
+__pycache__
+logs
+*.json
