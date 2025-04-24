@@ -3,64 +3,116 @@ from sklearn.linear_model import LogisticRegression
 
 import torch.nn as nn
 import torch
+
 class LayerClassifier:
     def __init__(self, llm_cfg: cfg, lr: float=0.01, max_iter: int=1):
+        """
+        Initialize the LayerClassifier with model configuration, learning rate, and maximum iterations.
+        
+        Args:
+            llm_cfg: Configuration for the LLM model.
+            lr: Learning rate for Logistic Regression.
+            max_iter: Maximum number of iterations for Logistic Regression training.
+        """
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        # 使 LogisticRegression 支持多分类问题（使用 softmax）
+        # Initialize Logistic Regression with multi-class classification using softmax (multinomial)
         self.linear = LogisticRegression(solver="saga", max_iter=max_iter, multi_class='multinomial', verbose=1)
         
+        # Initialize data dictionary to store training and testing data for each class
         self.data = {
             "train": {
                 "pos": None,
                 "neg": None,
-                "ext": None,  # 新增 extraversion 类别
+                "ext": None,  # Added extraversion class
             },
             "test": {
                 "pos": None,
                 "neg": None,
-                "ext": None,  # 新增 extraversion 类别
+                "ext": None,  # Added extraversion class
             }
         }
 
     def train(self, pos_tensor: torch.tensor, neg_tensor: torch.tensor, ext_tensor: torch.tensor, n_epoch: int=100, batch_size: int=64) -> list[float]:
-        # 三类样本合并成一个训练数据集
+        """
+        Train the model using the provided positive, negative, and extraversion samples.
+        
+        Args:
+            pos_tensor: Tensor containing positive class (agreeableness) samples.
+            neg_tensor: Tensor containing negative class (neuroticism) samples.
+            ext_tensor: Tensor containing extraversion class samples.
+            n_epoch: Number of training epochs.
+            batch_size: Size of the training batch.
+        
+        Returns:
+            A list of floats containing the training history (empty in this case).
+        """
+        # Combine the three classes into a single training dataset
         X = torch.vstack([pos_tensor, neg_tensor, ext_tensor]).to(self.device)
         y = torch.cat((
-            torch.ones(pos_tensor.size(0)),  # 1 为 "agreeableness"
-            torch.zeros(neg_tensor.size(0)),  # 0 为 "neuroticism"
-            torch.full((ext_tensor.size(0),), 2)  # 2 为 "extraversion"
+            torch.ones(pos_tensor.size(0)),  # 1 for "agreeableness"
+            torch.zeros(neg_tensor.size(0)),  # 0 for "neuroticism"
+            torch.full((ext_tensor.size(0),), 2)  # 2 for "extraversion"
         )).to(self.device)
         
-        # 保存训练数据
+        # Save training data for later analysis
         self.data["train"]["pos"] = pos_tensor.cpu()
         self.data["train"]["neg"] = neg_tensor.cpu()
         self.data["train"]["ext"] = ext_tensor.cpu()
 
-        self.linear.fit(X.cpu().numpy(), y.cpu().numpy())  # 使用 sklearn 的 fit 进行训练
+        # Train the logistic regression model using sklearn
+        self.linear.fit(X.cpu().numpy(), y.cpu().numpy())
 
         return []
 
     def predict(self, tensor: torch.tensor) -> torch.tensor:
-        # 返回每个样本的预测类别
+        """
+        Predict the class for each sample in the input tensor.
+        
+        Args:
+            tensor: Input tensor to classify.
+        
+        Returns:
+            A tensor of predicted classes.
+        """
         return torch.tensor(self.linear.predict(tensor.cpu().numpy()))
 
     def predict_proba(self, tensor: torch.tensor) -> torch.tensor:
-        tensor = tensor.to(self.device).to(torch.float32)  # 强制转换 tensor 为 float32 类型
-        # 返回每个类别的概率
+        """
+        Predict the probability for each class for each sample in the input tensor.
+        
+        Args:
+            tensor: Input tensor to classify.
+        
+        Returns:
+            A tensor of predicted probabilities.
+        """
+        tensor = tensor.to(self.device).to(torch.float32)  # Ensure tensor is float32
         return torch.tensor(self.linear.predict_proba(tensor.cpu().numpy()))
         
     def evaluate_testacc(self, pos_tensor: torch.tensor, neg_tensor: torch.tensor, ext_tensor: torch.tensor) -> float:
-        # 评估准确度
+        """
+        Evaluate the accuracy of the model on the test set.
+        
+        Args:
+            pos_tensor: Test tensor containing positive class samples.
+            neg_tensor: Test tensor containing negative class samples.
+            ext_tensor: Test tensor containing extraversion class samples.
+        
+        Returns:
+            The accuracy of the model on the test set.
+        """
+        # Combine the three classes into a single test dataset
         test_data = torch.vstack([pos_tensor, neg_tensor, ext_tensor]).to(self.device)
         predictions = self.predict(test_data)
         true_labels = torch.cat((
-            torch.ones(pos_tensor.size(0)),  # 1 为 "agreeableness"
-            torch.zeros(neg_tensor.size(0)),  # 0 为 "neuroticism"
-            torch.full((ext_tensor.size(0),), 2)  # 2 为 "extraversion"
+            torch.ones(pos_tensor.size(0)),  # 1 for "agreeableness"
+            torch.zeros(neg_tensor.size(0)),  # 0 for "neuroticism"
+            torch.full((ext_tensor.size(0),), 2)  # 2 for "extraversion"
         ))
 
         correct_count = torch.sum(predictions == true_labels).item()
 
+        # Save test data for later analysis
         self.data["test"]["pos"] = pos_tensor.cpu()
         self.data["test"]["neg"] = neg_tensor.cpu()
         self.data["test"]["ext"] = ext_tensor.cpu()
@@ -68,56 +120,70 @@ class LayerClassifier:
         return correct_count / len(true_labels)
     
     def evaluate_testacc_with_shuffled_labels(self, pos_tensor: torch.tensor, neg_tensor: torch.tensor, ext_tensor: torch.tensor) -> float:
-        # 合并三个类别的样本数据
+        """
+        Evaluate accuracy on the test set after shuffling the true labels.
+        
+        Args:
+            pos_tensor: Test tensor containing positive class samples.
+            neg_tensor: Test tensor containing negative class samples.
+            ext_tensor: Test tensor containing extraversion class samples.
+        
+        Returns:
+            The shuffled accuracy difference.
+        """
+        # Combine the three classes into a single test dataset
         test_data = torch.vstack([pos_tensor, neg_tensor, ext_tensor]).to(self.device)
-        
-        # 获取模型的预测结果
         predictions = self.predict(test_data)
-        
-        # 真实标签：1 -> "agreeableness"，0 -> "neuroticism"，2 -> "extraversion"
         true_labels = torch.cat((
-            torch.ones(pos_tensor.size(0)),  # "agreeableness" 类别，标签为 1
-            torch.zeros(neg_tensor.size(0)),  # "neuroticism" 类别，标签为 0
-            torch.full((ext_tensor.size(0),), 2)  # "extraversion" 类别，标签为 2
+            torch.ones(pos_tensor.size(0)),  # 1 for "agreeableness"
+            torch.zeros(neg_tensor.size(0)),  # 0 for "neuroticism"
+            torch.full((ext_tensor.size(0),), 2)  # 2 for "extraversion"
         ))
 
-        # 计算原始准确率
+        # Original accuracy
         original_accuracy = torch.sum(predictions == true_labels).item() / len(true_labels)
 
-        # 打乱标签
+        # Shuffle the true labels
         shuffled_labels = true_labels[torch.randperm(true_labels.size(0))]
 
-        # 计算标签打乱后的准确率
+        # Shuffled accuracy
         shuffled_accuracy = torch.sum(predictions == shuffled_labels).item() / len(shuffled_labels)
 
-        # 返回两者的差值
         return shuffled_accuracy
     
     def evaluate_testnll(self, pos_tensor: torch.Tensor, neg_tensor: torch.Tensor, ext_tensor: torch.Tensor) -> float:
         """
-        计算模型在原始测试数据上的平均负对数概率 (NLL)。
+        Evaluate the negative log-likelihood (NLL) on the test set.
+        
+        Args:
+            pos_tensor: Test tensor containing positive class samples.
+            neg_tensor: Test tensor containing negative class samples.
+            ext_tensor: Test tensor containing extraversion class samples.
+        
+        Returns:
+            The average NLL on the test set.
         """
-        # 1. 将三类样本拼接成一个测试集
+        # Combine the three classes into a single test dataset
         test_data = torch.vstack([pos_tensor, neg_tensor, ext_tensor]).to(self.device)
 
-        # 2. 获取预测概率 (shape: [N, num_classes])
-        predicted_probs = self.predict_proba(test_data).to(self.device)
+        # Get predicted probabilities
+        predicted_probs = self.predict_proba(test_data)
 
-        # 3. 构造真实标签: 1->"agreeableness", 0->"neuroticism", 2->"extraversion"
+        # Construct true labels
         true_labels = torch.cat((
             torch.ones(pos_tensor.size(0)),       # label = 1
             torch.zeros(neg_tensor.size(0)),      # label = 0
             torch.full((ext_tensor.size(0),), 2)  # label = 2
         )).long().to(self.device)
 
-        # 4. 取出真实标签对应的预测概率
+        # Extract the predicted probabilities corresponding to the true labels
         correct_probs = predicted_probs[torch.arange(len(true_labels)), true_labels]
 
-        # 5. 计算负对数概率 (-log p)，并取平均
-        nll = -torch.log(correct_probs + 1e-12)  # 加上 1e-12 防止 log(0)
+        # Calculate negative log-likelihood
+        nll = -torch.log(correct_probs + 1e-12)  # Avoid log(0) by adding a small epsilon
         avg_nll = nll.mean().item()
 
-        # 6. 保存测试数据到 self.data["test"]（可选）
+        # Save test data for later analysis
         self.data["test"]["pos"] = pos_tensor.cpu()
         self.data["test"]["neg"] = neg_tensor.cpu()
         self.data["test"]["ext"] = ext_tensor.cpu()
@@ -127,41 +193,49 @@ class LayerClassifier:
 
     def evaluate_testnll_with_zero_input(self, pos_tensor: torch.Tensor, neg_tensor: torch.Tensor, ext_tensor: torch.Tensor) -> float:
         """
-        将输入替换为全 0 张量后，计算模型在该“零向量输入”测试集上的平均负对数概率 (NLL)。
-        这可以作为一种 baseline，对比模型在无信息输入时的表现。
+        Evaluate the NLL using zero input tensors as the test set (baseline).
+        
+        Args:
+            pos_tensor: Test tensor containing positive class samples.
+            neg_tensor: Test tensor containing negative class samples.
+            ext_tensor: Test tensor containing extraversion class samples.
+        
+        Returns:
+            The average NLL using zero input.
         """
-        # 1. 将三类样本拼接成一个测试集
+        # Create zero input tensors of the same shape as the test data
         test_data = torch.vstack([pos_tensor, neg_tensor, ext_tensor]).to(self.device)
-
-        # 2. 生成与 test_data 形状相同的全 0 张量
         zero_data = torch.zeros_like(test_data)
 
-        # 3. 获取“零输入”下的预测概率
-        predicted_probs = self.predict_proba(zero_data).to(self.device)
+        # Get predicted probabilities for the zero input
+        predicted_probs = self.predict_proba(zero_data)
 
-        # 4. 构造真实标签
+        # Construct true labels
         true_labels = torch.cat((
             torch.ones(pos_tensor.size(0)),       # label = 1
             torch.zeros(neg_tensor.size(0)),      # label = 0
             torch.full((ext_tensor.size(0),), 2)  # label = 2
         )).long().to(self.device)
 
-        # 5. 取出真实标签对应的预测概率
+        # Extract the predicted probabilities corresponding to the true labels
         correct_probs = predicted_probs[torch.arange(len(true_labels)), true_labels]
 
-        # 6. 计算 -log(prob) 并做平均
-        nll = -torch.log(correct_probs + 1e-12)
+        # Calculate negative log-likelihood
+        nll = -torch.log(correct_probs + 1e-12)  # Avoid log(0) by adding a small epsilon
         avg_nll = nll.mean().item()
 
-        # 7. 保存测试数据到 self.data["test"]（可选）
-        #    这里若想保留“零输入”数据，也可以将 zero_data.cpu() 存到 self.data
+        # Save test data for later analysis
         self.data["test"]["pos"] = pos_tensor.cpu()
         self.data["test"]["neg"] = neg_tensor.cpu()
         self.data["test"]["ext"] = ext_tensor.cpu()
 
         return avg_nll
 
-    
     def get_weights_bias(self) -> tuple[torch.tensor, torch.tensor]:
-        # 返回权重和偏置（可以扩展为多类分类）
+        """
+        Return the weights and bias of the logistic regression model.
+        
+        Returns:
+            A tuple of the weights and bias tensors.
+        """
         return torch.tensor(self.linear.coef_).to(self.device), torch.tensor(self.linear.intercept_).to(self.device)

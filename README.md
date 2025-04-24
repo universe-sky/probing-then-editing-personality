@@ -1,1 +1,1 @@
-working in progress，并且promise to to organize and open-source all the code by May
+working in progress，and promise to to organize and open-source all the code by May

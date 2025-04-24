@@ -5,59 +5,67 @@ from sklearn.model_selection import train_test_split
 
 def load_instructions_from_json(dataset_path: str, label_list: list[str], train_size: float=1.0):
     """
-    加载 JSON 文件并根据标签划分数据集（训练集、测试集）。
+    Load data from a JSON file and split the dataset into training and testing sets based on the provided labels.
+    
+    Args:
+        dataset_path (str): The path to the dataset (JSON file).
+        label_list (list[str]): A list of labels to extract from the dataset.
+        train_size (float): The proportion of data to use for the training set (default is 1.0, meaning all data is used for training).
+    
+    Returns:
+        dict: A dictionary containing the dataset name, label list, and the training and testing splits.
+        list: A list of entities (e.g., city names).
     """
     assert 0 < train_size <= 1.0, "train_size should be in (0, 1]"
     
-    # 读取 JSON 文件
+    # Read the JSON dataset file
     with open(dataset_path, "r") as f:
         dataset = json.load(f)
     
-    # 初始化返回数据结构
+    # Initialize a dictionary to hold the return data structure
     ret = {
         "dataset_name": os.path.basename(dataset_path),
         "label_list": label_list,
         "train": [],
-        "test": [],  # 划分训练集和测试集
+        "test": [],  # Placeholder for training and testing data
     }
 
-    # 将每个人格标签的样本提取出来
+    # Dictionary to hold label-specific data
     label_data = {label: [] for label in label_list}
-    entities = []  # 存储实体名称
+    entities = []  # List to store entities (e.g., city names)
     
-    # 遍历数据集，将每个标签的文本提取出来
+    # Loop through the dataset and extract text samples for each label
     for item in dataset:
-        entity = item["ent"]  # 获取实体（如城市名）
+        entity = item["ent"]  # Get the entity name (e.g., city)
         entities.append(entity)
         for label in label_list:
             if label in item:
-                texts = item[label]
+                texts = item[label]  # Get texts associated with this label
                 for text in texts:
-                    label_data[label].append((text, label, entity))  # 保存文本和标签
-    
-    # 对每个标签进行数据划分，确保文本和实体保持一致地划分
+                    label_data[label].append((text, label, entity))  # Save the text, label, and entity
+
+    # Split the data for each label into training and testing sets
     for label in label_list:
-        # 从 label_data 中提取出当前标签的所有数据
-        label_samples = label_data[label]
+        label_samples = label_data[label]  # Get all samples for this label
         
-        # 随机打乱顺序，确保文本和实体一起打乱
+        # Shuffle the samples to randomize their order
         random.shuffle(label_samples)
         
-        # 划分训练集、测试集
+        # Split into training and testing sets based on train_size
         train_data, test_data = train_test_split(label_samples, test_size=1 - train_size, random_state=42)
         
-        # 保存划分的数据
+        # Append the split data to the results
         ret["train"].append(train_data)
         ret["test"].append(test_data)
 
-    # 打印训练集和测试集的大小，确保比例正确
+    # Print the size of the training and testing sets
     train_size = sum(len(train) for train in ret["train"])
     test_size = sum(len(test) for test in ret["test"])
     
     print(f"Total training samples: {train_size}, Total testing samples: {test_size}")
     print(f"Training to testing ratio: {train_size / (train_size + test_size):.2f} : {(test_size / (train_size + test_size)):.2f}")
 
-    return ret, entities  # 返回实体列表
+    return ret, entities  # Return the dataset split and the list of entities
 
 
 def load_instructions_by_size(
@@ -66,7 +74,16 @@ def load_instructions_by_size(
     train_size: float = 1.0,
 ):
     """
-    使用指定的训练集比例加载数据，并划分训练集和测试集。
+    Load data with a specific training set size and split it into training and testing sets.
+    
+    Args:
+        dataset_path (str): The path to the dataset (JSON file).
+        label_list (list[str]): A list of labels to extract from the dataset.
+        train_size (float): The proportion of data to use for the training set (default is 1.0).
+    
+    Returns:
+        dict: A dictionary containing the dataset name, label list, and the training and testing splits.
+        list: A list of entities (e.g., city names).
     """
     return load_instructions_from_json(dataset_path, label_list, train_size)
 
@@ -76,6 +93,14 @@ def load_instructions_by_flag(
     label_list: list[str],
 ):
     """
-    加载数据并根据训练集和测试集的标记进行划分
+    Load data and split it based on predefined training and testing flags within the dataset.
+    
+    Args:
+        dataset_path (str): The path to the dataset (JSON file).
+        label_list (list[str]): A list of labels to extract from the dataset.
+    
+    Returns:
+        dict: A dictionary containing the dataset name, label list, and the training and testing splits.
+        list: A list of entities (e.g., city names).
     """
     return load_instructions_from_json(dataset_path, label_list)
