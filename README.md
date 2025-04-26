@@ -1,1 +1,1 @@
-working in progress，and promise to to organize and open-source all the code by May
+After creating a conda environment using experiment.yml, run python demo.py to train the classifier for personality editing. The chat/instruct class model is used by default. If it is a base model, please check the code in the base directory to replace the code.
