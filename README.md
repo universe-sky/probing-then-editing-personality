@@ -22,6 +22,8 @@ All datasets used in this project are stored in the `datasets/` directory.
 
 ### Baseline
 
+For more information, please refer to [README](https://github.com/universe-sky/probing-then-editing-personality/blob/main/Easyedit/personality_edit/README.md).
+
 ## Our work
 
 ### Stage 1: Probing Experiment
