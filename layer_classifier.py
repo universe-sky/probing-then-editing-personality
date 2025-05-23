@@ -167,7 +167,7 @@ class LayerClassifier:
         test_data = torch.vstack([pos_tensor, neg_tensor, ext_tensor]).to(self.device)
 
         # Get predicted probabilities
-        predicted_probs = self.predict_proba(test_data)
+        predicted_probs = self.predict_proba(test_data).to(self.device)
 
         # Construct true labels
         true_labels = torch.cat((
@@ -208,7 +208,7 @@ class LayerClassifier:
         zero_data = torch.zeros_like(test_data)
 
         # Get predicted probabilities for the zero input
-        predicted_probs = self.predict_proba(zero_data)
+        predicted_probs = self.predict_proba(zero_data).to(self.device)
 
         # Construct true labels
         true_labels = torch.cat((
