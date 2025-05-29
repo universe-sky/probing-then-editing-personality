@@ -73,7 +73,7 @@ output = llm_gen.generate(question)
 from perturbation import Perturbation
 
 # Create a perturbation to target the "neuroticism" personality with high probability
-pert = Perturbation(clfr, target_class=0, target_probability=0.99)
+pert = Perturbation(clfr, target_class=1, target_probability=0.99)
 llm_gen.set_perturbation(pert)
 
 # Generate the perturbed response
